@@ -58,9 +58,10 @@
   }
 
   function hide() {
-    unlocked = true;
-    lastActivity = Date.now();
-    cover.remove();
+  unlocked = true;
+  lastActivity = Date.now();
+  cover.remove();
+  document.documentElement.classList.remove('security-pending');
   }
 
   function node(tag, content) {
@@ -106,10 +107,11 @@
   }
 
   function lock() {
-    if (!cfg) return;
+  if (!cfg) return;
 
-    unlocked = false;
-    show();
+  document.documentElement.classList.add('security-pending');
+  unlocked = false;
+  show();
 
     const ui = render('🔒 Finanças da Casa', 'Digite seu PIN para desbloquear.');
     const input = ui.addInput('PIN de 6 números', '••••••');
