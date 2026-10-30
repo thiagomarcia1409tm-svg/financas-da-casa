@@ -1,0 +1,84 @@
+
+/* Finanças da Casa — compartilhar backup */
+(function () {
+  'use strict';
+
+  const KEY = 'financasCasaV1';
+  const botaoExportar = document.getElementById('export');
+
+  if (!botaoExportar) return;
+
+  const botao = document.createElement('button');
+  botao.id = 'backupDrive';
+  botao.type = 'button';
+  botao.textContent = 'Fazer backup agora';
+  botao.style.marginLeft = '8px';
+  botao.classList.add('primary');
+
+  botaoExportar.insertAdjacentElement('afterend', botao);
+
+  function baixar(arquivo) {
+    const url = URL.createObjectURL(arquivo);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = arquivo.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  botao.addEventListener('click', async function () {
+    let dados;
+
+    try {
+      const armazenados = localStorage.getItem(KEY);
+
+      if (!armazenados) {
+        alert('Não foram encontrados dados para backup.');
+        return;
+      }
+
+      dados = JSON.parse(armazenados);
+
+      if (!dados || !Array.isArray(dados.entries)) {
+        throw new Error('Dados financeiros inválidos.');
+      }
+    } catch (erro) {
+      alert('Não foi possível preparar o backup: ' + erro.message);
+      return;
+    }
+
+    const data = new Date().toISOString().slice(0, 10);
+
+    const arquivo = new File(
+      [JSON.stringify(dados, null, 2)],
+      'financas-da-casa-backup-' + data + '.json',
+      { type: 'application/json' }
+    );
+
+    if (
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [arquivo] })
+    ) {
+      try {
+        await navigator.share({
+          files: [arquivo],
+          title: 'Backup Finanças da Casa'
+        });
+        return;
+      } catch (erro) {
+        if (erro.name === 'AbortError') return;
+      }
+    }
+
+    baixar(arquivo);
+    alert(
+      'O backup foi enviado para download. ' +
+      'Você pode salvá-lo no Google Drive.'
+    );
+  });
+})();
