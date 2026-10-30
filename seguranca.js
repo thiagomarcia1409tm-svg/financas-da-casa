@@ -1,278 +1,330 @@
 
+/* Finanças da Casa — bloqueio visual local, versão 2.
+ * Não criptografa o armazenamento local nem substitui autenticação de servidor.
+ */
 (function () {
-  "use strict";
+  'use strict';
+  const KEY = 'financasCasaSegurancaV2';
+  const LEGACY_KEY = 'financasCasaSegurancaV1';
+  const IDLE_MS = 2 * 60 * 1000;
+  const ROUNDS = 310000;
+  if (!window.crypto || !crypto.subtle || !document.body) return;
 
-  const KEY = "financasCasaSegurancaV1";
-  const LOCK_AFTER = 2 * 60 * 1000;
+  const enc = new TextEncoder();
+  const b64 = bytes => btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''));
+  const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+  const validPin = pin => /^\d{6}$/.test(pin);
+  const randomRecovery = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-  if (!window.crypto || !crypto.subtle) {
-    console.warn("Segurança: navegador incompatível.");
-    return;
+  async function digest(secret, salt) {
+    const key = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveBits']);
+    return b64(new Uint8Array(await crypto.subtle.deriveBits({
+      name: 'PBKDF2',
+      salt,
+      iterations: ROUNDS,
+      hash: 'SHA-256'
+    }, key, 256)));
   }
 
-  const encoder = new TextEncoder();
-  let config = null;
+  let cfg;
+  try {
+    cfg = JSON.parse(localStorage.getItem(KEY));
+  } catch (_) {
+    cfg = null;
+  }
+
+  if (!cfg || cfg.version !== 2 || !cfg.salt || !cfg.pinHash || !cfg.recoveryHash) {
+    cfg = null;
+  }
+
   let unlocked = false;
   let lastActivity = Date.now();
+  let attempts = 0;
+  let waitUntil = 0;
 
-  try {
-    config = JSON.parse(localStorage.getItem(KEY));
-  } catch {
-    config = null;
+  const cover = document.createElement('div');
+  cover.id = 'securityOverlay';
+  cover.setAttribute('role', 'dialog');
+  cover.setAttribute('aria-modal', 'true');
+  cover.setAttribute('aria-label', 'Proteção do Finanças da Casa');
+  cover.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#123b35;color:#17342e;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
+
+  const panel = document.createElement('div');
+  panel.style.cssText = 'background:#fff;border-radius:18px;padding:22px;width:100%;max-width:380px;box-shadow:0 10px 36px #0005';
+  cover.append(panel);
+
+  function show() {
+    if (!cover.isConnected) document.body.append(cover);
   }
 
-  function bytesToBase64(bytes) {
-    let text = "";
-    bytes.forEach(b => text += String.fromCharCode(b));
-    return btoa(text);
-  }
-
-  function base64ToBytes(text) {
-    return Uint8Array.from(atob(text), c => c.charCodeAt(0));
-  }
-
-  async function derive(pin, salt) {
-    const material = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(pin),
-      "PBKDF2",
-      false,
-      ["deriveBits"]
-    );
-
-    const bits = await crypto.subtle.deriveBits(
-      {
-        name: "PBKDF2",
-        salt,
-        iterations: 310000,
-        hash: "SHA-256"
-      },
-      material,
-      256
-    );
-
-    return bytesToBase64(new Uint8Array(bits));
-  }
-
-  function validPin(pin) {
-    return /^\d{6}$/.test(pin);
-  }
-
-  const overlay = document.createElement("div");
-  overlay.id = "securityOverlay";
-  overlay.style.cssText = `
-    position:fixed;
-    inset:0;
-    z-index:99999;
-    background:#123b35;
-    color:white;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:20px;
-  `;
-
-  const panel = document.createElement("div");
-  panel.style.cssText = `
-    background:white;
-    color:#17342e;
-    border-radius:18px;
-    padding:24px;
-    width:100%;
-    max-width:360px;
-    text-align:center;
-  `;
-
-  overlay.appendChild(panel);
-
-  function setPanel(title, description, buttonText) {
-    panel.replaceChildren();
-
-    const heading = document.createElement("h2");
-    heading.textContent = title;
-
-    const info = document.createElement("p");
-    info.textContent = description;
-
-    const input = document.createElement("input");
-    input.type = "password";
-    input.inputMode = "numeric";
-    input.autocomplete = "off";
-    input.maxLength = 6;
-    input.placeholder = "PIN de 6 números";
-    input.setAttribute("aria-label", "PIN de 6 números");
-
-    const message = document.createElement("p");
-    message.style.color = "#ad493a";
-
-    const button = document.createElement("button");
-    button.textContent = buttonText;
-    button.className = "primary";
-    button.style.width = "100%";
-
-    panel.append(heading, info, input, message, button);
-
-    return { input, message, button };
-  }
-
-  function showOverlay() {
-    if (!overlay.isConnected) {
-      document.body.appendChild(overlay);
-    }
-  }
-
-  function hideOverlay() {
-    overlay.remove();
+  function hide() {
     unlocked = true;
     lastActivity = Date.now();
+    cover.remove();
+  }
+
+  function node(tag, content) {
+    const el = document.createElement(tag);
+    el.textContent = content;
+    return el;
+  }
+
+  function render(title, description) {
+    panel.replaceChildren();
+    const heading = node('h2', title);
+    const info = node('p', description);
+    const msg = node('p', '');
+    msg.style.cssText = 'color:#a63d31;min-height:1.3em;font-size:14px';
+    panel.append(heading, info);
+
+    return {
+      msg,
+      addInput(label, placeholder = '') {
+        const field = node('label', label);
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.autocomplete = 'off';
+        input.inputMode = 'numeric';
+        input.maxLength = 6;
+        input.placeholder = placeholder;
+        input.style.cssText = 'width:100%;padding:12px;margin:8px 0 12px;border:1px solid #ccc;border-radius:10px';
+        panel.append(field, input);
+        return input;
+      },
+      addButton(label, fn, secondary = false) {
+        const btn = node('button', label);
+        btn.type = 'button';
+        btn.style.cssText = 'width:100%;padding:12px;margin-top:8px;border:0;border-radius:10px;background:' + (secondary ? '#e7efeb' : '#176b55') + ';color:' + (secondary ? '#17342e' : 'white') + ';font-weight:700';
+        btn.addEventListener('click', fn);
+        panel.append(btn);
+        return btn;
+      },
+      finish() {
+        panel.append(msg);
+      }
+    };
   }
 
   function lock() {
-    if (!config) return;
+    if (!cfg) return;
 
     unlocked = false;
-    showOverlay();
+    show();
 
-    const ui = setPanel(
-      "Finanças da Casa",
-      "Digite seu PIN para acessar.",
-      "Desbloquear"
-    );
+    const ui = render('🔒 Finanças da Casa', 'Digite seu PIN para desbloquear.');
+    const input = ui.addInput('PIN de 6 números', '••••••');
 
-    ui.button.onclick = async function () {
-      const pin = ui.input.value;
-
-      if (!validPin(pin)) {
-        ui.message.textContent = "Digite os 6 números.";
+    const btn = ui.addButton('Desbloquear', async () => {
+      if (Date.now() < waitUntil) {
+        ui.msg.textContent = 'Aguarde antes de tentar novamente.';
         return;
       }
 
-      ui.button.disabled = true;
+      if (!validPin(input.value)) {
+        ui.msg.textContent = 'Digite exatamente 6 números.';
+        return;
+      }
+
+      btn.disabled = true;
 
       try {
-        const hash = await derive(
-          pin,
-          base64ToBytes(config.salt)
-        );
+        const hash = await digest(input.value, unb64(cfg.salt));
 
-        if (hash === config.hash) {
-          hideOverlay();
+        if (hash === cfg.pinHash) {
+          attempts = 0;
+          waitUntil = 0;
+          hide();
         } else {
-          ui.message.textContent = "PIN incorreto.";
-          ui.input.value = "";
+          attempts++;
+
+          if (attempts >= 5) {
+            waitUntil = Date.now() + 30000;
+            attempts = 0;
+            ui.msg.textContent = 'Muitas tentativas. Aguarde 30 segundos.';
+          } else {
+            ui.msg.textContent = 'PIN incorreto.';
+          }
+
+          input.value = '';
         }
-      } catch {
-        ui.message.textContent = "Erro ao verificar PIN.";
+      } catch (_) {
+        ui.msg.textContent = 'Não foi possível verificar o PIN.';
       } finally {
-        ui.button.disabled = false;
+        btn.disabled = false;
       }
-    };
+    });
+
+    ui.addButton('Esqueci meu PIN', recovery, true);
+    ui.finish();
   }
 
-  function setup() {
-    showOverlay();
+  function recovery() {
+    show();
 
-    const ui = setPanel(
-      "Criar PIN de segurança",
-      "Escolha 6 números e confirme na próxima etapa.",
-      "Continuar"
+    const ui = render(
+      'Recuperar acesso',
+      'Digite o código de recuperação que foi fornecido ao criar o PIN.'
     );
 
-    ui.button.onclick = function () {
-      const first = ui.input.value;
+    const input = ui.addInput('Código de recuperação');
+    input.inputMode = 'text';
+    input.maxLength = 32;
+    input.autocapitalize = 'characters';
 
-      if (!validPin(first)) {
-        ui.message.textContent = "Use exatamente 6 números.";
+    const btn = ui.addButton('Verificar código', async () => {
+      if (Date.now() < waitUntil) {
+        ui.msg.textContent = 'Aguarde antes de tentar novamente.';
         return;
       }
 
-      const confirmUI = setPanel(
-        "Confirmar PIN",
-        "Digite novamente os mesmos 6 números.",
-        "Ativar proteção"
-      );
+      btn.disabled = true;
 
-      confirmUI.button.onclick = async function () {
-        if (confirmUI.input.value !== first) {
-          confirmUI.message.textContent =
-            "Os códigos não coincidem.";
-          return;
+      try {
+        const value = input.value.trim().toUpperCase();
+        const hash = await digest(value, unb64(cfg.salt));
+
+        if (hash === cfg.recoveryHash) {
+          attempts = 0;
+          waitUntil = 0;
+          setup(true);
+        } else {
+          attempts++;
+          ui.msg.textContent = 'Código incorreto.';
+
+          if (attempts >= 5) {
+            waitUntil = Date.now() + 30000;
+            attempts = 0;
+            ui.msg.textContent = 'Aguarde 30 segundos.';
+          }
         }
+      } catch (_) {
+        ui.msg.textContent = 'Falha na verificação.';
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
-        confirmUI.button.disabled = true;
-
-        try {
-          const salt = crypto.getRandomValues(
-            new Uint8Array(16)
-          );
-
-          const hash = await derive(first, salt);
-
-          config = {
-            version: 1,
-            salt: bytesToBase64(salt),
-            hash
-          };
-
-          localStorage.setItem(
-            KEY,
-            JSON.stringify(config)
-          );
-
-          hideOverlay();
-          alert("PIN configurado com sucesso!");
-        } catch {
-          confirmUI.message.textContent =
-            "Não foi possível configurar o PIN.";
-          confirmUI.button.disabled = false;
-        }
-      };
-    };
+    ui.addButton('Voltar', lock, true);
+    ui.finish();
   }
 
-  const lockButton = document.createElement("button");
-  lockButton.type = "button";
-  lockButton.textContent = "🔒 Bloquear agora";
-  lockButton.style.cssText =
-    "display:block;margin:0 16px 12px;width:calc(100% - 32px)";
+  function setup(isRecovery = false) {
+    show();
 
-  const privacyButton = document.getElementById(
-    "privacyToggle"
-  );
+    const ui = render(
+      isRecovery ? 'Criar novo PIN' : 'Ativar proteção por PIN',
+      'Escolha um PIN de 6 números. Você receberá um código de recuperação para guardar fora do aplicativo.'
+    );
 
-  if (privacyButton) {
-    privacyButton.after(lockButton);
+    const first = ui.addInput('Novo PIN');
+    const second = ui.addInput('Confirme o PIN');
+
+    const btn = ui.addButton('Continuar', async () => {
+      if (!validPin(first.value) || first.value !== second.value) {
+        ui.msg.textContent = 'Os dois PINs devem ter os mesmos 6 números.';
+        return;
+      }
+
+      btn.disabled = true;
+
+      try {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const recoveryCode = randomRecovery();
+
+        const next = {
+          version: 2,
+          salt: b64(salt),
+          pinHash: await digest(first.value, salt),
+          recoveryHash: await digest(recoveryCode, salt)
+        };
+
+        const step = render(
+          'Guarde seu código de recuperação',
+          'Anote este código em um local seguro, fora do celular. Ele será necessário se você esquecer o PIN.'
+        );
+
+        const code = node('p', recoveryCode);
+        code.style.cssText = 'overflow-wrap:anywhere;font-family:monospace;font-size:17px;font-weight:700;background:#eef4f0;padding:12px;border-radius:8px';
+        panel.append(code);
+
+        const acknowledge = document.createElement('input');
+        acknowledge.type = 'checkbox';
+        acknowledge.style.width = 'auto';
+
+        const label = node('label', ' Guardei o código de recuperação em local seguro');
+        label.prepend(acknowledge);
+        panel.append(label);
+
+        step.addButton('Concluir e ativar', () => {
+          if (!acknowledge.checked) {
+            step.msg.textContent = 'Confirme que guardou o código.';
+            return;
+          }
+
+          try {
+            localStorage.setItem(KEY, JSON.stringify(next));
+            cfg = next;
+            hide();
+          } catch (_) {
+            step.msg.textContent = 'Não foi possível salvar a configuração.';
+          }
+        });
+
+        step.finish();
+      } catch (_) {
+        ui.msg.textContent = 'Erro ao preparar o PIN.';
+        btn.disabled = false;
+      }
+    });
+
+    ui.finish();
+  }
+
+  show();
+
+  const lockBtn = node('button', '🔒 Bloquear agora');
+  lockBtn.type = 'button';
+  lockBtn.style.cssText = 'display:block;width:calc(100% - 32px);margin:0 16px 12px';
+
+  const privacyBtn = document.getElementById('privacyToggle');
+
+  if (privacyBtn) {
+    privacyBtn.after(lockBtn);
   } else {
-    document.querySelector("header").after(lockButton);
+    document.querySelector('header')?.after(lockBtn);
   }
 
-  lockButton.onclick = lock;
+  lockBtn.addEventListener('click', () => {
+    if (cfg) lock();
+  });
 
-  ["pointerdown", "keydown", "touchstart"].forEach(event => {
-    document.addEventListener(event, function () {
+  for (const evt of ['pointerdown', 'keydown', 'touchstart']) {
+    document.addEventListener(evt, () => {
       if (unlocked && !document.hidden) {
         lastActivity = Date.now();
       }
     }, { passive: true });
-  });
+  }
 
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden && config) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && cfg) {
+      lock();
+    } else if (!document.hidden && cfg && !unlocked) {
       lock();
     }
   });
 
-  window.setInterval(function () {
-    if (
-      config &&
-      unlocked &&
-      Date.now() - lastActivity >= LOCK_AFTER
-    ) {
+  window.addEventListener('pagehide', () => {
+    if (cfg) lock();
+  });
+
+  window.setInterval(() => {
+    if (cfg && unlocked && Date.now() - lastActivity >= IDLE_MS) {
       lock();
     }
   }, 1000);
 
-  if (config && config.salt && config.hash) {
+  if (cfg) {
     lock();
   } else {
     setup();
