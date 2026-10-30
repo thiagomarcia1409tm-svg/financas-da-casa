@@ -79,7 +79,11 @@
       changed = true;
     }
 
-    if (changed) write(data);
+    if (changed) {
+  write(data);
+  location.reload();
+  return;
+    }
 
     const list = get('recList');
     list.replaceChildren();
