@@ -86,15 +86,81 @@
       }
     }
 
-    for (const item of dados.entries) {
-      if (
-        !item ||
-        typeof item !== 'object' ||
-        Array.isArray(item)
-      ) {
-        throw new Error('Lançamento inválido.');
-      }
-    }
+   
+const texto = valor =>
+  typeof valor === 'string' && valor.trim().length > 0;
+
+const valorPositivo = valor =>
+  typeof valor === 'number' &&
+  Number.isFinite(valor) &&
+  valor > 0;
+
+const dataValida = valor => {
+  if (typeof valor !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+
+  const [ano, mes, dia] = valor.split('-').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+
+  return data.getFullYear() === ano &&
+    data.getMonth() === mes - 1 &&
+    data.getDate() === dia;
+};
+
+for (const item of dados.entries) {
+  if (
+    !item ||
+    typeof item !== 'object' ||
+    Array.isArray(item) ||
+    !texto(item.id) ||
+    !['receita', 'despesa'].includes(item.type) ||
+    !texto(item.description) ||
+    !valorPositivo(item.amount) ||
+    !texto(item.category) ||
+    !dataValida(item.date) ||
+    !['previsto', 'realizado'].includes(item.status)
+  ) {
+    throw new Error(
+      'O backup contém um lançamento inválido.'
+    );
+  }
+}
+
+for (const item of dados.recurring || []) {
+  if (
+    !item ||
+    typeof item !== 'object' ||
+    Array.isArray(item) ||
+    !texto(item.id) ||
+    !texto(item.description) ||
+    !valorPositivo(item.amount) ||
+    !Number.isInteger(item.day) ||
+    item.day < 1 ||
+    item.day > 31 ||
+    !texto(item.category) ||
+    typeof item.start !== 'string' ||
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(item.start) ||
+    typeof item.active !== 'boolean'
+  ) {
+    throw new Error(
+      'O backup contém uma conta fixa inválida.'
+    );
+  }
+}
+
+for (const [mes, valor] of Object.entries(dados.reserve)) {
+  if (
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ||
+    typeof valor !== 'number' ||
+    !Number.isFinite(valor) ||
+    valor < 0
+  ) {
+    throw new Error(
+      'O backup contém uma reserva inválida.'
+    );
+  }
+}
+ 
 
     return true;
   }
