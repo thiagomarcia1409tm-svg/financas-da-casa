@@ -79,10 +79,11 @@
 
     baixarArquivo(arquivo);
 
-    alert(
-      'Backup preparado e enviado para download. ' +
-      'Você pode salvá-lo no Google Drive.'
-    );
+alert(
+  'O download do backup foi solicitado. ' +
+  'Confira na pasta Downloads se o arquivo foi salvo. ' +
+  'Se você cancelou o download, nenhum backup foi criado.'
+);
   });
 })();
 
