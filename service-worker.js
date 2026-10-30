@@ -12,6 +12,7 @@ const ASSETS = [
   './seguranca.js',
 './backup-seguro.js',
 './compartilhar-backup.js'
+  ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
