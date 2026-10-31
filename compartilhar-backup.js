@@ -7,6 +7,46 @@
   const exportar = document.getElementById('export');
 
   if (!exportar) return;
+  
+function verificarLembreteBackup() {
+  const hoje = new Date();
+  const dataHoje = [
+    hoje.getFullYear(),
+    String(hoje.getMonth() + 1).padStart(2, '0'),
+    String(hoje.getDate()).padStart(2, '0')
+  ].join('-');
+
+  const ultimoBackup = localStorage.getItem(
+    'financasCasaUltimoBackup'
+  );
+
+  const ultimoAviso = sessionStorage.getItem(
+    'financasCasaAvisoBackup'
+  );
+
+  if (ultimoBackup === dataHoje || ultimoAviso === dataHoje) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    'financasCasaAvisoBackup',
+    dataHoje
+  );
+
+  setTimeout(() => {
+    const fazerBackup = confirm(
+      'Você ainda não registrou um backup hoje.\n\n' +
+      'Deseja salvar seus dados no Google Drive agora?'
+    );
+
+    if (fazerBackup) {
+      document.getElementById('compartilharBackup')?.click();
+    }
+  }, 3000);
+}
+
+window.addEventListener('load', verificarLembreteBackup);
+  
 
   function prepararArquivo() {
     const texto = localStorage.getItem(KEY);
