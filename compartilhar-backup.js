@@ -128,38 +128,3 @@
   });
 })();
 
-
-    try {
-      arquivo = prepararArquivo();
-    } catch (erro) {
-      alert('Erro ao preparar backup: ' + erro.message);
-      return;
-    }
-
-    if (
-      typeof navigator.share !== 'function' ||
-      typeof navigator.canShare !== 'function' ||
-      !navigator.canShare({ files: [arquivo] })
-    ) {
-      alert(
-        'Este navegador não permite compartilhar ' +
-        'o arquivo diretamente. Use Fazer backup agora.'
-      );
-      return;
-    }
-
-    try {
-      await navigator.share({
-        files: [arquivo],
-        title: 'Backup Finanças da Casa'
-      });
-    } catch (erro) {
-      if (erro.name === 'AbortError') return;
-
-      alert(
-        'Não foi possível abrir o compartilhamento: ' +
-        erro.message
-      );
-    }
-  });
-})();
