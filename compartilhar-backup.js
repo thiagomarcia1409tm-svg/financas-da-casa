@@ -131,7 +131,6 @@ localStorage.setItem(
 alert('Backup salvo! O lembrete diário foi atualizado.');
 
 
-      alert('Arquivo salvo no destino escolhido.');
     } catch (erro) {
       if (erro.name === 'AbortError') return;
 
