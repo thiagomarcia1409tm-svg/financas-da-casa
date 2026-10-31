@@ -83,8 +83,51 @@
     }
   });
 
+  
   compartilhar.addEventListener('click', async () => {
     let arquivo;
+
+    try {
+      arquivo = prepararArquivo();
+    } catch (erro) {
+      alert('Erro ao preparar backup: ' + erro.message);
+      return;
+    }
+
+    if (typeof window.showSaveFilePicker !== 'function') {
+      alert(
+        'O seletor de destino não está disponível ' +
+        'neste aplicativo. Use Fazer backup agora ' +
+        'e envie o arquivo pelo aplicativo Google Drive.'
+      );
+      return;
+    }
+
+    try {
+      const destino = await window.showSaveFilePicker({
+        suggestedName: arquivo.name,
+        types: [{
+          description: 'Arquivo de backup JSON',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+
+      const gravacao = await destino.createWritable();
+      await gravacao.write(arquivo);
+      await gravacao.close();
+
+      alert('Arquivo salvo no destino escolhido.');
+    } catch (erro) {
+      if (erro.name === 'AbortError') return;
+
+      alert(
+        'Não foi possível salvar o arquivo: ' +
+        erro.message
+      );
+    }
+  });
+})();
+
 
     try {
       arquivo = prepararArquivo();
