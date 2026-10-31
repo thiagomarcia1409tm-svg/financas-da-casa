@@ -1,5 +1,5 @@
 
-const CACHE = 'financas-casa-v12';
+const CACHE = 'financas-casa-v13';
 
 const ASSETS = [
   './',
