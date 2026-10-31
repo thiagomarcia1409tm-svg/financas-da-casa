@@ -1,23 +1,51 @@
 
-/* Finanças da Casa — backup com compartilhamento */
+/* Finanças da Casa — download e compartilhamento */
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'financasCasaV1';
-  const botaoExportar = document.getElementById('export');
+  const KEY = 'financasCasaV1';
+  const exportar = document.getElementById('export');
 
-  if (!botaoExportar) return;
+  if (!exportar) return;
 
-  const botao = document.createElement('button');
-  botao.id = 'backupDrive';
-  botao.type = 'button';
-  botao.textContent = 'Fazer backup agora';
-  botao.classList.add('primary');
-  botao.style.marginLeft = '8px';
+  function prepararArquivo() {
+    const texto = localStorage.getItem(KEY);
 
-  botaoExportar.insertAdjacentElement('afterend', botao);
+    if (!texto) {
+      throw new Error('Nenhum dado encontrado.');
+    }
 
-  function baixarArquivo(arquivo) {
+    const dados = JSON.parse(texto);
+
+    if (!dados || !Array.isArray(dados.entries)) {
+      throw new Error('Dados financeiros inválidos.');
+    }
+
+    const hoje = new Date();
+    const data = [
+      hoje.getFullYear(),
+      String(hoje.getMonth() + 1).padStart(2, '0'),
+      String(hoje.getDate()).padStart(2, '0')
+    ].join('-');
+
+    return new File(
+      [JSON.stringify(dados, null, 2)],
+      'financas-da-casa-backup-' + data + '.json',
+      { type: 'application/json' }
+    );
+  }
+
+  function criarBotao(id, titulo) {
+    const botao = document.createElement('button');
+    botao.id = id;
+    botao.type = 'button';
+    botao.textContent = titulo;
+    botao.style.margin = '8px 8px 0 0';
+    exportar.insertAdjacentElement('afterend', botao);
+    return botao;
+  }
+
+  function baixar(arquivo) {
     const url = URL.createObjectURL(arquivo);
     const link = document.createElement('a');
 
@@ -31,59 +59,64 @@
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
-  botao.addEventListener('click', async () => {
-    let dados;
+  const compartilhar = criarBotao(
+    'compartilharBackup',
+    'Compartilhar backup'
+  );
+
+  const baixarAgora = criarBotao(
+    'backupDrive',
+    'Fazer backup agora'
+  );
+
+  baixarAgora.classList.add('primary');
+
+  baixarAgora.addEventListener('click', () => {
+    try {
+      baixar(prepararArquivo());
+      alert(
+        'Download solicitado. Confira se o arquivo ' +
+        'foi realmente salvo no celular.'
+      );
+    } catch (erro) {
+      alert('Erro ao preparar backup: ' + erro.message);
+    }
+  });
+
+  compartilhar.addEventListener('click', async () => {
+    let arquivo;
 
     try {
-      const conteudo = localStorage.getItem(STORAGE_KEY);
-
-      if (!conteudo) {
-        alert('Nenhum dado encontrado para backup.');
-        return;
-      }
-
-      dados = JSON.parse(conteudo);
-
-      if (!dados || !Array.isArray(dados.entries)) {
-        throw new Error('Dados financeiros inválidos.');
-      }
+      arquivo = prepararArquivo();
     } catch (erro) {
       alert('Erro ao preparar backup: ' + erro.message);
       return;
     }
 
-    const data = new Date().toISOString().slice(0, 10);
-    const nome = 'financas-da-casa-backup-' + data + '.json';
-
-    const arquivo = new File(
-      [JSON.stringify(dados, null, 2)],
-      nome,
-      { type: 'application/json' }
-    );
-
     if (
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ files: [arquivo] })
+      typeof navigator.share !== 'function' ||
+      typeof navigator.canShare !== 'function' ||
+      !navigator.canShare({ files: [arquivo] })
     ) {
-      try {
-        await navigator.share({
-          files: [arquivo],
-          title: 'Backup Finanças da Casa'
-        });
-        return;
-      } catch (erro) {
-        if (erro.name === 'AbortError') return;
-      }
+      alert(
+        'Este navegador não permite compartilhar ' +
+        'o arquivo diretamente. Use Fazer backup agora.'
+      );
+      return;
     }
 
-    baixarArquivo(arquivo);
+    try {
+      await navigator.share({
+        files: [arquivo],
+        title: 'Backup Finanças da Casa'
+      });
+    } catch (erro) {
+      if (erro.name === 'AbortError') return;
 
-alert(
-  'O download do backup foi solicitado. ' +
-  'Confira na pasta Downloads se o arquivo foi salvo. ' +
-  'Se você cancelou o download, nenhum backup foi criado.'
-);
+      alert(
+        'Não foi possível abrir o compartilhamento: ' +
+        erro.message
+      );
+    }
   });
 })();
-
