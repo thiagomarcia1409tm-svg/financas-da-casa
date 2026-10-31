@@ -217,6 +217,8 @@ localStorage.setItem(
   dataBackup
 );
 
+atualizarStatusBackup();
+      
 alert('Backup salvo! O lembrete diário foi atualizado.');
 
 
