@@ -117,6 +117,48 @@ window.addEventListener('load', verificarLembreteBackup);
   );
 
   baixarAgora.classList.add('primary');
+  
+  // Painel de backup na aba Família
+  const painel = document.createElement('div');
+  painel.id = 'painelBackup';
+  painel.style.cssText =
+    'margin:16px 0;padding:16px;border:1px solid #ccc;' +
+    'border-radius:12px;';
+
+  const tituloPainel = document.createElement('h3');
+  tituloPainel.textContent = 'Segurança dos backups';
+
+  const statusBackup = document.createElement('p');
+  statusBackup.id = 'statusBackup';
+
+  function atualizarStatusBackup() {
+    const data = localStorage.getItem('financasCasaUltimoBackup');
+
+    if (!data) {
+      statusBackup.textContent = 'Nenhum backup registrado ainda.';
+      return;
+    }
+
+    const partes = data.split('-');
+    statusBackup.textContent =
+      'Último backup registrado: ' +
+      partes[2] + '/' + partes[1] + '/' + partes[0];
+  }
+
+  const botaoPainel = document.createElement('button');
+  botaoPainel.type = 'button';
+  botaoPainel.textContent = 'Salvar backup no Drive';
+  botaoPainel.classList.add('primary');
+
+  botaoPainel.addEventListener('click', () => {
+    compartilhar.click();
+  });
+
+  painel.append(tituloPainel, statusBackup, botaoPainel);
+  exportar.parentElement.appendChild(painel);
+
+  atualizarStatusBackup();
+  
 
   baixarAgora.addEventListener('click', () => {
     try {
