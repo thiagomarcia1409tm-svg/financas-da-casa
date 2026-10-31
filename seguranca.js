@@ -308,13 +308,15 @@
     }, { passive: true });
   }
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && cfg) {
-      lock();
-    } else if (!document.hidden && cfg && !unlocked) {
+  
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && cfg && unlocked) {
+    if (Date.now() - lastActivity >= IDLE_MS) {
       lock();
     }
-  });
+  }
+});
+
 
   window.addEventListener('pagehide', () => {
     if (cfg) lock();
