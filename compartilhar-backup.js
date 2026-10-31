@@ -33,8 +33,15 @@ function verificarLembreteBackup() {
     dataHoje
   );
 
-  setTimeout(() => {
-    const fazerBackup = confirm(
+  
+setTimeout(() => {
+  if (document.getElementById('securityOverlay')) {
+    sessionStorage.removeItem('financasCasaAvisoBackup');
+    return;
+  }
+
+  const fazerBackup = confirm(
+
       'Você ainda não registrou um backup hoje.\n\n' +
       'Deseja salvar seus dados no Google Drive agora?'
     );
