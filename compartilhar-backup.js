@@ -131,19 +131,35 @@ window.addEventListener('load', verificarLembreteBackup);
   const statusBackup = document.createElement('p');
   statusBackup.id = 'statusBackup';
 
-  function atualizarStatusBackup() {
-    const data = localStorage.getItem('financasCasaUltimoBackup');
+  
+function atualizarStatusBackup() {
+  const data = localStorage.getItem('financasCasaUltimoBackup');
 
-    if (!data) {
-      statusBackup.textContent = 'Nenhum backup registrado ainda.';
-      return;
-    }
-
-    const partes = data.split('-');
-    statusBackup.textContent =
-      'Último backup registrado: ' +
-      partes[2] + '/' + partes[1] + '/' + partes[0];
+  if (!data) {
+    statusBackup.textContent = '⚠️ Nenhum backup registrado ainda.';
+    return;
   }
+
+  const hoje = new Date();
+  const dataHoje = [
+    hoje.getFullYear(),
+    String(hoje.getMonth() + 1).padStart(2, '0'),
+    String(hoje.getDate()).padStart(2, '0')
+  ].join('-');
+
+  const partes = data.split('-');
+  const dataFormatada =
+    partes[2] + '/' + partes[1] + '/' + partes[0];
+
+  if (data === dataHoje) {
+    statusBackup.textContent =
+      '✅ Backup registrado hoje — ' + dataFormatada;
+  } else {
+    statusBackup.textContent =
+      '⚠️ Backup pendente — último registro: ' + dataFormatada;
+  }
+}
+
 
   const botaoPainel = document.createElement('button');
   botaoPainel.type = 'button';
