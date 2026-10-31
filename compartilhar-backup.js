@@ -112,9 +112,24 @@
         }]
       });
 
-      const gravacao = await destino.createWritable();
-      await gravacao.write(arquivo);
-      await gravacao.close();
+const gravacao = await destino.createWritable();
+await gravacao.write(arquivo);
+await gravacao.close();
+
+const agora = new Date();
+const dataBackup = [
+  agora.getFullYear(),
+  String(agora.getMonth() + 1).padStart(2, '0'),
+  String(agora.getDate()).padStart(2, '0')
+].join('-');
+
+localStorage.setItem(
+  'financasCasaUltimoBackup',
+  dataBackup
+);
+
+alert('Backup salvo! O lembrete diário foi atualizado.');
+
 
       alert('Arquivo salvo no destino escolhido.');
     } catch (erro) {
