@@ -1,5 +1,5 @@
 
-const CACHE = 'financas-casa-v15';
+const CACHE = 'financas-casa-v16';
 
 const ASSETS = [
   './',
@@ -10,8 +10,9 @@ const ASSETS = [
   './contas-fixas.js',
   './privacidade.js',
   './seguranca.js',
-'./backup-seguro.js',
-'./compartilhar-backup.js'
+
+'./compartilhar-backup.js',
+'./menu-lateral.js'
   ];
 
 self.addEventListener('install', event => {
