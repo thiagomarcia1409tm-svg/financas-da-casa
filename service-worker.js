@@ -9,11 +9,12 @@ const ASSETS = [
   './icon-512.png',
   './contas-fixas.js',
   './privacidade.js',
-  './seguranca.js',
-
+  
+'./seguranca.js',
+'./backup-seguro.js',
 './compartilhar-backup.js',
 './menu-lateral.js'
-  ];
+
 
 self.addEventListener('install', event => {
   event.waitUntil(
