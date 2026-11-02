@@ -14,6 +14,7 @@ const ASSETS = [
 './backup-seguro.js',
 './compartilhar-backup.js',
 './menu-lateral.js'
+  ];
 
 
 self.addEventListener('install', event => {
