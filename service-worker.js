@@ -1,5 +1,5 @@
 
-const CACHE = 'financas-casa-v18';
+const CACHE = 'financas-casa-v19';
 
 const ASSETS = [
   './',
@@ -12,8 +12,7 @@ const ASSETS = [
   
 './seguranca.js',
 './backup-seguro.js',
-'./compartilhar-backup.js',
-'./menu-lateral.js'
+'./compartilhar-backup.js'
   ];
 
 
