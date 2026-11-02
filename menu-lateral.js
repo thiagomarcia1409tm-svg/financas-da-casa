@@ -42,12 +42,23 @@
       flex-shrink: 0;
     }
 
-    #abrirMenu {
-      background: transparent;
-      color: white;
-      font-size: 25px;
-      padding: 4px 10px 4px 0;
-    }
+    
+#abrirMenu {
+  position: fixed;
+  top: 42%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 998;
+  background: #176b55;
+  color: white;
+  width: 44px;
+  height: 58px;
+  font-size: 25px;
+  padding: 0;
+  border-radius: 0 12px 12px 0;
+  box-shadow: 2px 2px 8px #0003;
+}
+
 
     #fundoMenu {
       position: fixed;
