@@ -318,9 +318,13 @@ document.addEventListener('visibilitychange', () => {
 });
 
 
-  window.addEventListener('pagehide', () => {
-    if (cfg) lock();
-  });
+  
+window.addEventListener('pageshow', () => {
+  if (cfg && unlocked && Date.now() - lastActivity >= IDLE_MS) {
+    lock();
+  }
+});
+
 
   window.setInterval(() => {
     if (cfg && unlocked && Date.now() - lastActivity >= IDLE_MS) {
